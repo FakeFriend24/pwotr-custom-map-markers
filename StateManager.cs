@@ -16,7 +16,7 @@ using Kingmaker.Utility;
 
 namespace CustomMapMarkers
 {
-    class StateManager : IWarningNotificationUIHandler, ISceneHandler
+    class StateManager : IWarningNotificationUIHandler, IAreaHandler
     {
         [DataContract]
         internal class SavedState
@@ -174,7 +174,7 @@ namespace CustomMapMarkers
 
         void IWarningNotificationUIHandler.HandleWarning(string text, bool addToLog) { }
 
-        void ISceneHandler.OnAreaDidLoad()
+        void IAreaHandler.OnAreaDidLoad()
         {
             Log.Write($"OnAreaDidLoad current=[{CurrentState.CharacterName}] game=[{Game.Instance.Player.MainCharacter.Value?.CharacterName}]");
 
@@ -184,7 +184,7 @@ namespace CustomMapMarkers
             }
         }
 
-        void ISceneHandler.OnAreaBeginUnloading()
+        void IAreaHandler.OnAreaBeginUnloading()
         {
             Log.Write($"OnAreaBeginUnloading current=[{CurrentState.CharacterName}] game=[{Game.Instance.Player.MainCharacter.Value?.CharacterName}]");
 

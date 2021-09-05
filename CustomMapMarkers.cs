@@ -8,11 +8,15 @@ using System.Runtime.Serialization;
 using Kingmaker;
 using Kingmaker.PubSubSystem;
 using Kingmaker.UI;
+using Kingmaker.UI.MVVM._PCView.ServiceWindows.LocalMap;
+using Kingmaker.UI.MVVM._VM.ServiceWindows.LocalMap;
+using Kingmaker.UI.MVVM._VM.ServiceWindows.LocalMap.Utils;
 using Kingmaker.UI.ServiceWindow.LocalMap;
 using Kingmaker.Visual.LocalMap;
+using Owlcat.Runtime.UI.MVVM;
 using UnityEngine;
 using UnityEngine.EventSystems;
-
+using UnityEngine.UI;
 
 namespace CustomMapMarkers
 {
@@ -30,17 +34,21 @@ namespace CustomMapMarkers
             AddMarkerstoLocalMap();
         }
 
-        private static FastInvoke LocalMap_Set = Helpers.CreateInvoker<LocalMap>("Set");
+        private static FastInvoke LocalMapVM_OnUpdateHandler = Helpers.CreateInvoker<LocalMapVM>("OnUpdateHandler");
 
-        internal static void CreateMarker(LocalMap map, PointerEventData eventData)
+        private static FastInvoke LocalMapPCView_BindViewImplementation = Helpers.CreateInvoker<LocalMapPCView>("BindViewImplementation");
+
+        internal static void CreateMarker(LocalMapPCView map, PointerEventData eventData)
         {
             ModMapMarker marker = NewMarker(map, eventData);
             LocalMapModel.Markers.Add(marker);
-            LocalMap_Set(map);  // Force a refresh to display the new mark
-            Game.Instance.UI.Common.UISound.Play(UISoundType.ButtonClick);
+
+            //LocalMapVM_OnUpdateHandler(map.GetPropertyValue("ViewModel") as LocalMapVM);  // Force a refresh to display the new mark
+            LocalMapPCView_BindViewImplementation(map);  // Force a refresh to display the new mark
+            UISoundController.Instance.Play(UISoundType.ButtonClick);
         }
 
-        private static ModMapMarker NewMarker(LocalMap map, PointerEventData eventData)
+        private static ModMapMarker NewMarker(LocalMapPCView map, PointerEventData eventData)
         {
             string areaName = Game.Instance.CurrentlyLoadedArea.AreaDisplayName;
             List <ModMapMarker> markersForArea;
@@ -51,12 +59,34 @@ namespace CustomMapMarkers
             return marker;
         }
 
-        private static Vector3 GetPositionFromEvent(LocalMap map, PointerEventData eventData)
+        private static Vector3 GetPositionFromEvent(LocalMapPCView map, PointerEventData eventData)
         {
+#if DEBUG
+            // Perform extra sanity checks in debug builds.
+
+            Log.Write($"GetPositionFromEvent was reached.");
+#endif
             Vector2 vector2;
-            RectTransformUtility.ScreenPointToLocalPointInRectangle(map.Image.rectTransform, eventData.position, Game.Instance.UI.UICamera, out vector2);
-            vector2 += Vector2.Scale(map.Image.rectTransform.sizeDelta, map.Image.rectTransform.pivot);
-            LocalMapRenderer.DrawResult drawResult = Helpers.GetField<LocalMapRenderer.DrawResult>(map, "m_DrawResult");
+            RectTransform rect = Helpers.GetField<RawImage>(map, "m_Image").rectTransform;
+#if DEBUG
+            // Perform extra sanity checks in debug builds.
+
+            Log.Write($"m_Image works.");
+#endif
+            RectTransformUtility.ScreenPointToLocalPointInRectangle(rect, eventData.position, Game.Instance.UI.UICamera, out vector2);
+            vector2 += Vector2.Scale(rect.sizeDelta, rect.pivot);
+            LocalMapVM lmVM = (LocalMapVM) map.GetPropertyValue("ViewModel");
+#if DEBUG
+            // Perform extra sanity checks in debug builds.
+
+            Log.Write($"ViewModel works too.");
+#endif
+            LocalMapRenderer.DrawResult drawResult = lmVM.DrawResult.Value;
+#if DEBUG
+            // Perform extra sanity checks in debug builds.
+
+            Log.Write($"m_DrawResult works too.");
+#endif
             Vector2 vector21 = new Vector2(vector2.x / (float)drawResult.ColorRT.width, vector2.y / (float)drawResult.ColorRT.height);
             Vector3 worldPoint = LocalMapRenderer.Instance.ViewportToWorldPoint(vector21);
             return worldPoint;
@@ -116,7 +146,7 @@ namespace CustomMapMarkers
         [DataMember]
         private SerializableVector3 Position;
         [DataMember]
-        internal LocalMap.MarkType Type;
+        internal LocalMapMarkType Type;
         [DataMember]
         internal bool IsVisible = true;
 
@@ -127,13 +157,13 @@ namespace CustomMapMarkers
         {
             Description = $"Custom marker #{StateManager.CurrentState.MarkerNumber++}";
             Position = position;
-            Type = LocalMap.MarkType.Poi;
+            Type = LocalMapMarkType.Poi;
         }
 
         string ILocalMapMarker.GetDescription()
             => Description;
 
-        LocalMap.MarkType ILocalMapMarker.GetMarkerType()
+        LocalMapMarkType ILocalMapMarker.GetMarkerType()
             => Type;
 
         Vector3 ILocalMapMarker.GetPosition()
@@ -141,13 +171,14 @@ namespace CustomMapMarkers
 
         bool ILocalMapMarker.IsVisible()
             => IsVisible;
+
     }
 
     class CustomMapMarkersMenu {
         private static Dictionary<string, List<ModMapMarker>> AreaMarkers { get { return StateManager.CurrentState.AreaMarkers; } }
         private static int lastAreaMenu = 0;
         private static string[] MarkTypeNames = { "Point of Interest", "Very Important Thing", "Loot", "Exit" };
-        private static LocalMap.MarkType[] MarkTypes = { LocalMap.MarkType.Poi, LocalMap.MarkType.VeryImportantThing, LocalMap.MarkType.Loot, LocalMap.MarkType.Exit };
+        private static LocalMapMarkType[] MarkTypes = { LocalMapMarkType.Poi, LocalMapMarkType.VeryImportantThing, LocalMapMarkType.Loot, LocalMapMarkType.Exit };
 
 
         internal static void Layout()

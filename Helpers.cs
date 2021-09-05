@@ -4,6 +4,7 @@
 using System;
 using System.Collections.Generic;
 using System.Linq;
+using System.Reflection;
 using System.Text;
 using Kingmaker.Blueprints;
 using Kingmaker.Blueprints.Classes;
@@ -42,6 +43,33 @@ namespace CustomMapMarkers
     // - less `Helpers.` etc.
     internal static class Helpers
     {
+
+        private static PropertyInfo GetPropertyInfo(Type type, string propertyName)
+        {
+            PropertyInfo propInfo = null;
+            do
+            {
+                propInfo = type.GetProperty(propertyName,
+                       BindingFlags.Instance | BindingFlags.Public | BindingFlags.NonPublic);
+                type = type.BaseType;
+            }
+            while (propInfo == null && type != null);
+            return propInfo;
+        }
+
+        public static object GetPropertyValue(this object obj, string propertyName)
+        {
+            if (obj == null)
+                throw new ArgumentNullException("obj");
+            Type objType = obj.GetType();
+            PropertyInfo propInfo = GetPropertyInfo(objType, propertyName);
+            if (propInfo == null)
+                throw new ArgumentOutOfRangeException("propertyName",
+                  string.Format("Couldn't find property {0} in type {1}", propertyName, objType.FullName));
+            return propInfo.GetValue(obj, null);
+        }
+
+
         public static void SetField(object obj, string name, object value)
         {
             Harmony12.AccessTools.Field(obj.GetType(), name).SetValue(obj, value);
@@ -291,10 +319,10 @@ namespace CustomMapMarkers
                 {
                     Append($"{indent}  class {c.name}");
                 }
-                foreach (var a in progression.Archetypes)
-                {
-                    Append($"{indent}  archetype {a.name}");
-                }
+                //foreach (var a in progression.Archetypes)
+                //{
+                //    Append($"{indent}  archetype {a.name}");
+                //}
                 foreach (var g in progression.UIGroups)
                 {
                     Append($"{indent}  ui group");
@@ -547,6 +575,7 @@ namespace CustomMapMarkers
             }
         }
 
+        /*
         [System.Diagnostics.Conditional("DEBUG")]
         internal static void Validate(BlueprintComponent c, BlueprintScriptableObject parent)
         {
@@ -559,6 +588,7 @@ namespace CustomMapMarkers
                 Flush();
             }
         }
+        */
 
         internal static void MaybeFlush()
         {

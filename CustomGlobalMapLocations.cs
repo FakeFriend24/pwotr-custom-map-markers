@@ -5,9 +5,11 @@ using System.Collections.Generic;
 using System.Linq;
 using System.Runtime.Serialization;
 using Kingmaker;
+using Kingmaker.Blueprints;
 using Kingmaker.GameModes;
 using Kingmaker.Globalmap;
 using Kingmaker.Globalmap.Blueprints;
+using Kingmaker.Globalmap.View;
 using Kingmaker.PubSubSystem;
 using Kingmaker.UI;
 using UnityEngine;
@@ -21,13 +23,13 @@ namespace CustomMapMarkers
             EventBus.Subscribe(new CustomGlobalMapLocations());
         }
 
-        internal static void CustomizeGlobalMapLocation(GlobalMapLocation location)
+        internal static void CustomizeGlobalMapLocation(GlobalMapPointView location)
         {
             ModGlobalMapLocation mapLocation = ModGlobalMapLocation.FindOrCreateByAssetGuid(location.Blueprint.AssetGuid);
             if (mapLocation != null)
             {
                 mapLocation.UpdateGlobalMapLocation();
-                Game.Instance.UI.Common.UISound.Play(UISoundType.ButtonClick);
+                UISoundController.Instance.Play(UISoundType.ButtonClick);
             }
             else
             {
@@ -47,7 +49,7 @@ namespace CustomMapMarkers
         {
         }
 
-        internal static void PostHandleHoverchange(GlobalMapLocation location, bool isHover)
+        internal static void PostHandleHoverchange(GlobalMapPointView location, bool isHover)
         {
             // The hover ring is our highlight so reinstate it when the mouse moves out of the location
             if (!isHover)
@@ -71,13 +73,13 @@ namespace CustomMapMarkers
         [DataMember]
         internal bool IsVisible;
         [DataMember]
-        private string AssetGuid;
+        private BlueprintGuid AssetGuid;
 
-        private GlobalMapLocation mapLocation;
+        private GlobalMapPointView mapLocation;
         internal bool IsDeleted = false;
         internal bool IsBeingDeleted = false;
 
-        private ModGlobalMapLocation(GlobalMapLocation location)
+        private ModGlobalMapLocation(GlobalMapPointView location)
         {
             this.mapLocation = location;
             this.AssetGuid = location.Blueprint.AssetGuid;
@@ -90,12 +92,12 @@ namespace CustomMapMarkers
             GlobalMapLocations.Add(this);
         }
 
-        internal static ModGlobalMapLocation FindOrCreateByAssetGuid(string assetGuid)
+        internal static ModGlobalMapLocation FindOrCreateByAssetGuid(BlueprintGuid assetGuid)
         {
             var modLocation = GlobalMapLocations.FirstOrDefault(location => location.AssetGuid == assetGuid);
             if (modLocation == null)
             {
-                GlobalMapLocation mapLocation = GlobalMapLocation.Instances.FirstOrDefault(map => map.Blueprint.AssetGuid == assetGuid);
+                GlobalMapPointView mapLocation = GlobalMapPointView.Instances.FirstOrDefault(map => map.Blueprint.AssetGuid == assetGuid);
                 if (mapLocation != null)
                 {
                     modLocation = new ModGlobalMapLocation(mapLocation);
@@ -108,10 +110,10 @@ namespace CustomMapMarkers
             return modLocation;
         }
 
-        internal static ModGlobalMapLocation FindByAssetGuid(string assetGuid)
+        internal static ModGlobalMapLocation FindByAssetGuid(BlueprintGuid assetGuid)
             => GlobalMapLocations.FirstOrDefault(location => location.AssetGuid == assetGuid);
 
-        internal static string GetModifiedDescription(BlueprintLocation bpLocation, string result)
+        internal static string GetModifiedDescription(BlueprintGlobalMapPoint bpLocation, string result)
         {
             ModGlobalMapLocation mapLocation = GlobalMapLocations.FirstOrDefault(location => location.AssetGuid == bpLocation.AssetGuid);
             if (mapLocation != null && !mapLocation.IsDeleted && mapLocation.IsVisible)
@@ -128,7 +130,7 @@ namespace CustomMapMarkers
         {
             if (this.mapLocation == null)
             {
-                this.mapLocation = GlobalMapLocation.Instances.FirstOrDefault(map => map.Blueprint.AssetGuid == this.AssetGuid);
+                this.mapLocation = GlobalMapPointView.Instances.FirstOrDefault(map => map.Blueprint.AssetGuid == this.AssetGuid);
                 if (this.mapLocation == null)
                 {
                     Log.Error($"Cannot find GlobalMapLocation for assetGuid=[{this.AssetGuid}]");
@@ -140,6 +142,11 @@ namespace CustomMapMarkers
                 this.Name = mapLocation.Blueprint.GetName(false);
             }
 
+            /* Triggers a Bug which keeps anything from being selected
+             * 
+             * Possible Fix: Override/alter  GlobalMapPointView.UpdateHighlight() ? Gotta think about it.
+             * 
+             * 
             this.mapLocation.HoverColor = this.IsVisible ? this.Color : this.mapLocation.CurrentColor;
             this.mapLocation.OverrideHCol = this.IsVisible;
 
@@ -148,6 +155,7 @@ namespace CustomMapMarkers
             Helpers.SetField(this.mapLocation, "m_Hover", this.IsVisible);
 
             this.mapLocation.UpdateHighlight();
+            */
             return true;
         }
 

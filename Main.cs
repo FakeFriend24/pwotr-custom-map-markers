@@ -13,17 +13,24 @@ using Kingmaker.Blueprints.Root.Strings.GameLog;
 using Kingmaker.GameModes;
 using Kingmaker.Globalmap;
 using Kingmaker.Globalmap.Blueprints;
+using Kingmaker.Globalmap.View;
 using Kingmaker.PubSubSystem;
 using Kingmaker.UI.ServiceWindow.LocalMap;
 using Kingmaker.Utility;
 using UnityEngine;
 using UnityEngine.EventSystems;
 using UnityModManagerNet;
+using Owlcat.Runtime.Core;
+using Owlcat.Runtime.Core.Logging;
+using Kingmaker.UI;
+using Kingmaker.UI.MVVM._PCView.ServiceWindows.LocalMap;
+using Kingmaker.UI.MVVM._VM.ServiceWindows.LocalMap;
 
 namespace CustomMapMarkers
 {
     public class Main
     {
+        /*
         [Harmony12.HarmonyPatch(typeof(LibraryScriptableObject), "LoadDictionary", new Type[0])]
         static class LibraryScriptableObject_LoadDictionary_Patch
         {
@@ -42,29 +49,79 @@ namespace CustomMapMarkers
 #endif
             }
         }
-
-        [Harmony12.HarmonyPatch(typeof(LocalMap), "OnPointerClick")]
-        static class LocalMap_OnPointerClick_Patch
+        */
+        /*
+        [Harmony12.HarmonyPatch(typeof(LocalMapPCView), "OnPointerClick")]
+        static class LocalMapPCView_OnPointerClick_Patch
         {
-            private static bool Prefix(LocalMap __instance, PointerEventData eventData)
+            private static bool Prefix(LocalMapPCView __instance, PointerEventData eventData)
             {
+#if DEBUG
+                // Perform extra sanity checks in debug builds.
+
+                Log.Write($"Prefix executed. PointerClick was registered");
+#endif
                 if (eventData.button == PointerEventData.InputButton.Left)
                 {
-                    if (IsShiftPressed)
+#if DEBUG
+                    // Perform extra sanity checks in debug builds.
+
+                    Log.Write($"PointerClick is left Button ");
+#endif                    
+                    if (KeyboardAccess.IsShiftHold())
                     {
+#if DEBUG
+                        // Perform extra sanity checks in debug builds.
+
+                        Log.Write($"Shift has been Hold too.");
+#endif                    
                         CustomMapMarkers.CreateMarker(__instance, eventData);
                     }
                 }
 
                 // Don't pass the click through to the map if control or shift are pressed
-                return !(IsControlPressed || IsShiftPressed);
+                return !(KeyboardAccess.IsCtrlHold() || KeyboardAccess.IsShiftHold());
             }
         }
-
-        [Harmony12.HarmonyPatch(typeof(LocalMap), "OnShow")]
-        static class LocalMap_OnShow_Patch
+        */
+        [Harmony12.HarmonyPatch(typeof(LocalMapPCView), "OnPointerClick")]
+        static class LocalMapPCView_OnPointerClick_Patch
         {
-            private static bool Prefix(LocalMap __instance)
+
+            private static bool Prefix(LocalMapPCView __instance, PointerEventData eventData)
+        {
+#if DEBUG
+            // Perform extra sanity checks in debug builds.
+
+            Log.Write($"Prefix executed. PointerClick was registered");
+#endif
+            if (eventData.button == PointerEventData.InputButton.Middle)
+            {
+#if DEBUG
+                // Perform extra sanity checks in debug builds.
+
+                Log.Write($"PointerClick is left Button ");
+#endif
+                if (KeyboardAccess.IsShiftHold())
+                {
+#if DEBUG
+                    // Perform extra sanity checks in debug builds.
+
+                    Log.Write($"Shift has been Hold too. " + (__instance == null).ToString());
+#endif
+                    CustomMapMarkers.CreateMarker(__instance, eventData);
+                }
+            }
+
+            // Don't pass the click through to the map if control or shift are pressed
+            return !(KeyboardAccess.IsCtrlHold() || KeyboardAccess.IsShiftHold());
+        }
+    }
+
+    [Harmony12.HarmonyPatch(typeof(LocalMapPCView), "BindViewImplementation")]
+        static class LocalMapPCView_BindViewImplementation_Patch
+        {
+            private static bool Prefix(LocalMapPCView __instance)
             {
                 IsLocalMapActive = true;
                 CustomMapMarkers.OnShowLocalMap();
@@ -72,8 +129,8 @@ namespace CustomMapMarkers
             }
         }
 
-        [Harmony12.HarmonyPatch(typeof(LocalMap), "OnHide")]
-        static class LocalMap_OnHide_Patch
+        [Harmony12.HarmonyPatch(typeof(LocalMapPCView), "DestroyViewImplementation")]
+        static class LocalMapPCView_DestroyViewImplementation_Patch
         {
             private static void Postfix()
             {
@@ -81,33 +138,33 @@ namespace CustomMapMarkers
             }
         }
 
-        [Harmony12.HarmonyPatch(typeof(GlobalMapLocation), "HandleClick")]
+        [Harmony12.HarmonyPatch(typeof(GlobalMapPointView), "HandleClick")]
         static class GlobalMapLocation_HandleClick_Patch
         {
-            private static bool Prefix(GlobalMapLocation __instance)
+            private static bool Prefix(GlobalMapPointView __instance)
             {
-                if (IsShiftPressed)
+                if (KeyboardAccess.IsShiftHold())
                 {
                     CustomGlobalMapLocations.CustomizeGlobalMapLocation(__instance);
                 }
                 // Don't pass the click through to the map if control or shift are pressed
-                return !(IsControlPressed || IsShiftPressed);
+                return !(KeyboardAccess.IsCtrlHold() || KeyboardAccess.IsShiftHold());
             }
         }
 
-        [Harmony12.HarmonyPatch(typeof(GlobalMapLocation), "HandleHoverChange")]
+        [Harmony12.HarmonyPatch(typeof(GlobalMapPointView), "HandleHoverChange")]
         static class GlobalMapLocation_HandleHoverChange_Patch
         {
-            private static void Postfix(GlobalMapLocation __instance, bool isHover)
+            private static void Postfix(GlobalMapPointView __instance, bool isHover)
             {
                 CustomGlobalMapLocations.PostHandleHoverchange(__instance, isHover);
             }
         }
 
-        [Harmony12.HarmonyPatch(typeof(BlueprintLocation), "GetDescription")]
+        [Harmony12.HarmonyPatch(typeof(BlueprintGlobalMapPoint), "GetDescription")]
         static class BlueprintLocation_GetDescription_Patch
         {
-            private static void Postfix(BlueprintLocation __instance, ref string __result)
+            private static void Postfix(BlueprintGlobalMapPoint __instance, ref string __result)
             {
                 __result = ModGlobalMapLocation.GetModifiedDescription(__instance, __result);
             }
@@ -137,8 +194,6 @@ namespace CustomMapMarkers
         private static bool IsControlPressed = false;
         private static bool IsShiftPressed   = false;
 
-        static LibraryScriptableObject library;
-
         public static bool enabled;
 
         public static UnityModManager.ModEntry.ModLogger logger;
@@ -154,23 +209,23 @@ namespace CustomMapMarkers
         [System.Diagnostics.Conditional("DEBUG")]
         static void EnableGameLogging()
         {
-            if (UberLogger.Logger.Enabled) return;
+            if (Owlcat.Runtime.Core.Logging.Logger.Instance.Enabled) return;
 
             // Code taken from GameStarter.Awake(). PF:K logging can be enabled with command line flags,
             // but when developing the mod it's easier to force it on.
             var dataPath = ApplicationPaths.persistentDataPath;
             Application.SetStackTraceLogType(LogType.Log, StackTraceLogType.None);
-            UberLogger.Logger.Enabled = true;
+            Owlcat.Runtime.Core.Logging.Logger.Instance.Enabled = true;
             var text = Path.Combine(dataPath, "GameLog.txt");
             if (File.Exists(text))
             {
                 File.Copy(text, Path.Combine(dataPath, "GameLogPrev.txt"), overwrite: true);
                 File.Delete(text);
             }
-            UberLogger.Logger.AddLogger(new UberLoggerFile("GameLogFull.txt", dataPath));
-            UberLogger.Logger.AddLogger(new UberLoggerFilter(new UberLoggerFile("GameLog.txt", dataPath), UberLogger.LogSeverity.Warning, "MatchLight"));
+            Owlcat.Runtime.Core.Logging.Logger.Instance.AddLogger(new UberLoggerFile("GameLogFull.txt", dataPath));
+            Owlcat.Runtime.Core.Logging.Logger.Instance.AddLogger(new UberLoggerFilter(new UberLoggerFile("GameLog.txt", dataPath), LogSeverity.Warning, "MatchLight"));
 
-            UberLogger.Logger.Enabled = true;
+            Owlcat.Runtime.Core.Logging.Logger.Instance.Enabled = true;
         }
 
         internal static void NotifyPlayer(string message, bool warning = false)
@@ -181,7 +236,7 @@ namespace CustomMapMarkers
             }
             else
             {
-                Game.Instance.UI.BattleLogManager.LogView.AddLogEntry(message, GameLogStrings.Instance.DefaultColor);
+                // Game.Instance.UI.DBattleLogManager.LogView.AddLogEntry(message, GameLogStrings.Instance.DefaultColor);
             }
         }
 
@@ -246,25 +301,25 @@ namespace CustomMapMarkers
             modEntry.OnSaveGUI = OnSaveGUI;
             settings = UnityModManager.ModSettings.Load<Settings>(modEntry);
             harmonyInstance = Harmony12.HarmonyInstance.Create(modEntry.Info.Id);
-            if (!ApplyPatch(typeof(LibraryScriptableObject_LoadDictionary_Patch), "Load library"))
-            {
-                throw Error("Failed to patch LibraryScriptableObject.LoadDictionary(), cannot load mod");
-            }
+            //if (!applypatch(typeof(libraryscriptableobject_loaddictionary_patch), "load library"))
+            //{
+            //    throw error("failed to patch libraryscriptableobject.loaddictionary(), cannot load mod");
+            //}
             if (!ApplyPatch(typeof(UnityModManager_UI_Update_Patch), "Read keys"))
             {
                 throw Error("Failed to patch LibraryScriptableObject.LoadDictionary(), cannot load mod");
             }
-            if (!ApplyPatch(typeof(LocalMap_OnPointerClick_Patch), "Local map click"))
+            if (!ApplyPatch(typeof(LocalMapPCView_OnPointerClick_Patch), "Local map click"))
             {
                 throw Error("Failed to patch LocalMap.OnPointerClick(), cannot load mod");
             }
-            if (!ApplyPatch(typeof(LocalMap_OnShow_Patch), "Local map show"))
+            if (!ApplyPatch(typeof(LocalMapPCView_BindViewImplementation_Patch), "Local map show"))
             {
-                throw Error("Failed to patch LocalMap.OnShow(), cannot load mod");
+                throw Error("Failed to patch LocalMap.BindViewImplementation(), cannot load mod");
             }
-            if (!ApplyPatch(typeof(LocalMap_OnHide_Patch), "Local map hide"))
+            if (!ApplyPatch(typeof(LocalMapPCView_DestroyViewImplementation_Patch), "Local map hide"))
             {
-                throw Error("Failed to patch LocalMap.OnHide(), cannot load mod");
+                throw Error("Failed to patch LocalMap.DestroyViewImplementation(), cannot load mod");
             }
             if (!ApplyPatch(typeof(GlobalMapLocation_HandleClick_Patch), "Global map location click"))
             {
