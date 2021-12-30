@@ -6,6 +6,7 @@ using System.Collections.Generic;
 using System.Linq;
 using System.Reflection;
 using System.Text;
+using HarmonyLib;
 using Kingmaker.Blueprints;
 using Kingmaker.Blueprints.Classes;
 using Kingmaker.Blueprints.Classes.Prerequisites;
@@ -72,69 +73,69 @@ namespace CustomMapMarkers
 
         public static void SetField(object obj, string name, object value)
         {
-            Harmony12.AccessTools.Field(obj.GetType(), name).SetValue(obj, value);
+            AccessTools.Field(obj.GetType(), name).SetValue(obj, value);
         }
 
         public static void SetLocalizedStringField(BlueprintScriptableObject obj, string name, string value)
         {
-            Harmony12.AccessTools.Field(obj.GetType(), name).SetValue(obj, Helpers.CreateString($"{obj.name}.{name}", value));
+            AccessTools.Field(obj.GetType(), name).SetValue(obj, Helpers.CreateString($"{obj.name}.{name}", value));
         }
 
         public static object GetField(object obj, string name)
         {
-            return Harmony12.AccessTools.Field(obj.GetType(), name).GetValue(obj);
+            return AccessTools.Field(obj.GetType(), name).GetValue(obj);
         }
 
         public static object GetField(Type type, object obj, string name)
         {
-            return Harmony12.AccessTools.Field(type, name).GetValue(obj);
+            return AccessTools.Field(type, name).GetValue(obj);
         }
 
         public static T GetField<T>(object obj, string name)
         {
-            return (T)Harmony12.AccessTools.Field(obj.GetType(), name).GetValue(obj);
+            return (T)AccessTools.Field(obj.GetType(), name).GetValue(obj);
         }
-
+        
         public static FastGetter CreateGetter<T>(string name) => CreateGetter(typeof(T), name);
 
         public static FastGetter CreateGetter(Type type, string name)
         {
-            return new FastGetter(Harmony12.FastAccess.CreateGetterHandler(Harmony12.AccessTools.Property(type, name)));
+            return new FastGetter(FastAccess.CreateGetterHandler<object, object>(AccessTools.Property(type, name)));
         }
 
         public static FastGetter CreateFieldGetter<T>(string name) => CreateFieldGetter(typeof(T), name);
 
         public static FastGetter CreateFieldGetter(Type type, string name)
         {
-            return new FastGetter(Harmony12.FastAccess.CreateGetterHandler(Harmony12.AccessTools.Field(type, name)));
+            return new FastGetter(FastAccess.CreateGetterHandler<object, object>(AccessTools.Field(type, name)));
         }
 
         public static FastSetter CreateSetter<T>(string name) => CreateSetter(typeof(T), name);
 
         public static FastSetter CreateSetter(Type type, string name)
         {
-            return new FastSetter(Harmony12.FastAccess.CreateSetterHandler(Harmony12.AccessTools.Property(type, name)));
+            return new FastSetter(FastAccess.CreateSetterHandler<object,object>(AccessTools.Property(type, name)));
         }
 
         public static FastSetter CreateFieldSetter<T>(string name) => CreateFieldSetter(typeof(T), name);
 
         public static FastSetter CreateFieldSetter(Type type, string name)
         {
-            return new FastSetter(Harmony12.FastAccess.CreateSetterHandler(Harmony12.AccessTools.Field(type, name)));
+            return new FastSetter(FastAccess.CreateSetterHandler<object,object>(AccessTools.Field(type, name)));
         }
 
         public static FastInvoke CreateInvoker<T>(String name) => CreateInvoker(typeof(T), name);
 
         public static FastInvoke CreateInvoker(Type type, String name)
         {
-            return new FastInvoke(Harmony12.MethodInvoker.GetHandler(Harmony12.AccessTools.Method(type, name)));
+            return new FastInvoke(MethodInvoker.GetHandler(AccessTools.Method(type, name)));
         }
 
         public static FastInvoke CreateInvoker<T>(String name, Type[] args, Type[] typeArgs = null) => CreateInvoker(typeof(T), name, args, typeArgs);
 
         public static FastInvoke CreateInvoker(Type type, String name, Type[] args, Type[] typeArgs = null)
         {
-            return new FastInvoke(Harmony12.MethodInvoker.GetHandler(Harmony12.AccessTools.Method(type, name, args, typeArgs)));
+            return new FastInvoke(MethodInvoker.GetHandler(AccessTools.Method(type, name, args, typeArgs)));
         }
 
         internal static LocalizedString CreateString(string key, string value)
@@ -600,5 +601,7 @@ namespace CustomMapMarkers
 
     public delegate void FastSetter(object source, object value);
     public delegate object FastGetter(object source);
+    public delegate void FastSetter<T,F>(F source, T value);
+    public delegate object FastGetter<T, F>(F source);
     public delegate object FastInvoke(object target, params object[] paramters);
 }

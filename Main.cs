@@ -25,6 +25,7 @@ using Owlcat.Runtime.Core.Logging;
 using Kingmaker.UI;
 using Kingmaker.UI.MVVM._PCView.ServiceWindows.LocalMap;
 using Kingmaker.UI.MVVM._VM.ServiceWindows.LocalMap;
+using HarmonyLib;
 
 namespace CustomMapMarkers
 {
@@ -84,7 +85,8 @@ namespace CustomMapMarkers
             }
         }
         */
-        [Harmony12.HarmonyPatch(typeof(LocalMapPCView), "OnPointerClick")]
+        [HarmonyPatch(typeof(LocalMapPCView))]
+        [HarmonyPatch("OnPointerClick")]
         static class LocalMapPCView_OnPointerClick_Patch
         {
 
@@ -95,7 +97,7 @@ namespace CustomMapMarkers
 
             Log.Write($"Prefix executed. PointerClick was registered");
 #endif
-            if (eventData.button == PointerEventData.InputButton.Middle)
+            if (eventData.button == PointerEventData.InputButton.Left)
             {
 #if DEBUG
                 // Perform extra sanity checks in debug builds.
@@ -118,18 +120,21 @@ namespace CustomMapMarkers
         }
     }
 
-    [Harmony12.HarmonyPatch(typeof(LocalMapPCView), "BindViewImplementation")]
+        [HarmonyPatch(typeof(LocalMapPCView))]
+        [HarmonyPatch("BindViewImplementation")]
+
         static class LocalMapPCView_BindViewImplementation_Patch
         {
             private static bool Prefix(LocalMapPCView __instance)
             {
                 IsLocalMapActive = true;
-                CustomMapMarkers.OnShowLocalMap();
+                CustomMapMarkers.OnShowLocalMap(__instance);
                 return true;
             }
         }
 
-        [Harmony12.HarmonyPatch(typeof(LocalMapPCView), "DestroyViewImplementation")]
+        [HarmonyPatch(typeof(LocalMapPCView))]
+        [HarmonyPatch("DestroyViewImplementation")]
         static class LocalMapPCView_DestroyViewImplementation_Patch
         {
             private static void Postfix()
@@ -138,8 +143,9 @@ namespace CustomMapMarkers
             }
         }
 
-        [Harmony12.HarmonyPatch(typeof(GlobalMapPointView), "HandleClick")]
-        static class GlobalMapLocation_HandleClick_Patch
+        [HarmonyPatch(typeof(GlobalMapPointView))]
+        [HarmonyPatch("HandleClick")]
+        static class GlobalMapPointView_HandleClick_Patch
         {
             private static bool Prefix(GlobalMapPointView __instance)
             {
@@ -152,16 +158,40 @@ namespace CustomMapMarkers
             }
         }
 
-        [Harmony12.HarmonyPatch(typeof(GlobalMapPointView), "HandleHoverChange")]
+        /*
+        [HarmonyPatch(typeof(GlobalMapPointView))]
+        [HarmonyPatch("IGMPoint.OnPointerClick")]
+        static class GlobalMapPointView_OnPointerClick_Patch
+        {
+            private static bool Prefix(GlobalMapPointView __instance)
+            {
+                // Don't pass the click through to the map if control or shift are pressed
+                return !(KeyboardAccess.IsCtrlHold() || KeyboardAccess.IsShiftHold());
+            }
+        }
+        */
+        [HarmonyPatch(typeof(GlobalMapPointView))]
+        [HarmonyPatch("UpdateHighlight")]
+        static class GlobalMapPointView_UpdateHighlight_Patch
+        {
+            private static void Postfix(GlobalMapPointView __instance)
+            {
+                CustomGlobalMapLocations.PostUpdateHighlight(__instance);
+            }
+        }
+        /* Hovering is now handled differently, gotta intercept UpdateHighlight Now
+        [HarmonyPatch(typeof(GlobalMapPointView))]
+        [HarmonyPatch("HandleHoverChange")]
         static class GlobalMapLocation_HandleHoverChange_Patch
         {
             private static void Postfix(GlobalMapPointView __instance, bool isHover)
             {
                 CustomGlobalMapLocations.PostHandleHoverchange(__instance, isHover);
             }
-        }
-
-        [Harmony12.HarmonyPatch(typeof(BlueprintGlobalMapPoint), "GetDescription")]
+        } 
+        */
+        [HarmonyPatch(typeof(BlueprintGlobalMapPoint))]
+        [HarmonyPatch("GetDescription")]
         static class BlueprintLocation_GetDescription_Patch
         {
             private static void Postfix(BlueprintGlobalMapPoint __instance, ref string __result)
@@ -170,7 +200,9 @@ namespace CustomMapMarkers
             }
         }
 
-        [Harmony12.HarmonyPatch(typeof(UnityModManager.UI), "Update")]
+        [HarmonyPatch(typeof(UnityModManager.UI))]
+        [HarmonyPatch("Update")]
+
         static class UnityModManager_UI_Update_Patch
         {
             private static void Postfix()
@@ -200,7 +232,7 @@ namespace CustomMapMarkers
 
         static Settings settings;
 
-        static Harmony12.HarmonyInstance harmonyInstance;
+        static Harmony harmonyInstance;
 
         static readonly Dictionary<Type, bool> typesPatched = new Dictionary<Type, bool>();
         static readonly List<String> failedPatches = new List<String>();
@@ -240,6 +272,9 @@ namespace CustomMapMarkers
             }
         }
 
+
+        // ** TO-DO: Update individualPatching to Harmony2 **//
+        /*
         // We don't want one patch failure to take down the entire mod, so they're applied individually.
         //
         // Also, in general the return value should be ignored. If a patch fails, we still want to create
@@ -250,7 +285,7 @@ namespace CustomMapMarkers
             {
                 if (typesPatched.ContainsKey(type)) return typesPatched[type];
 
-                var patchInfo = Harmony12.HarmonyMethodExtensions.GetHarmonyMethods(type);
+                var patchInfo = HarmonyMethodExtensions.GetHarmonyMethods(type);
                 if (patchInfo == null || patchInfo.Count() == 0)
                 {
                     Log.Error($"Failed to apply patch {type}: could not find Harmony attributes");
@@ -291,8 +326,10 @@ namespace CustomMapMarkers
                 }
             }
         }
+        */
 
-        // Mod entry point, invoked from UMM
+
+        // mod entry point, invoked from UMM
         static bool Load(UnityModManager.ModEntry modEntry)
         {
             logger = modEntry.Logger;
@@ -300,11 +337,13 @@ namespace CustomMapMarkers
             modEntry.OnGUI = OnGUI;
             modEntry.OnSaveGUI = OnSaveGUI;
             settings = UnityModManager.ModSettings.Load<Settings>(modEntry);
-            harmonyInstance = Harmony12.HarmonyInstance.Create(modEntry.Info.Id);
+            harmonyInstance = new Harmony(modEntry.Info.Id);
+            harmonyInstance.PatchAll();
             //if (!applypatch(typeof(libraryscriptableobject_loaddictionary_patch), "load library"))
             //{
             //    throw error("failed to patch libraryscriptableobject.loaddictionary(), cannot load mod");
             //}
+            /*
             if (!ApplyPatch(typeof(UnityModManager_UI_Update_Patch), "Read keys"))
             {
                 throw Error("Failed to patch LibraryScriptableObject.LoadDictionary(), cannot load mod");
@@ -333,7 +372,7 @@ namespace CustomMapMarkers
             {
                 throw Error("Failed to patch BlueprintLocation.GetDescription(), cannot load mod");
             }
-
+            */
             StartMod();
             return true;
         }

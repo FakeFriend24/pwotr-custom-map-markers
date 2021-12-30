@@ -10,8 +10,10 @@ using Kingmaker.PubSubSystem;
 using Kingmaker.UI;
 using Kingmaker.UI.MVVM._PCView.ServiceWindows.LocalMap;
 using Kingmaker.UI.MVVM._VM.ServiceWindows.LocalMap;
+using Kingmaker.UI.MVVM._VM.ServiceWindows.LocalMap.Markers;
 using Kingmaker.UI.MVVM._VM.ServiceWindows.LocalMap.Utils;
 using Kingmaker.UI.ServiceWindow.LocalMap;
+using Kingmaker.Utility;
 using Kingmaker.Visual.LocalMap;
 using Owlcat.Runtime.UI.MVVM;
 using UnityEngine;
@@ -24,28 +26,65 @@ namespace CustomMapMarkers
     {
         private static Dictionary<string, List<ModMapMarker>> AreaMarkers { get { return StateManager.CurrentState.AreaMarkers; } }
 
+        private static HashSet<LocalMapMarkerVM> markerVMs = new HashSet<LocalMapMarkerVM>();
         internal static void Load()
         {
             EventBus.Subscribe(new CustomMapMarkers());
         }
 
-        internal static void OnShowLocalMap()
+        internal static void OnShowLocalMap(LocalMapPCView map)
         {
-            AddMarkerstoLocalMap();
+            AddMarkerstoLocalMap(map);
         }
 
         private static FastInvoke LocalMapVM_OnUpdateHandler = Helpers.CreateInvoker<LocalMapVM>("OnUpdateHandler");
 
-        private static FastInvoke LocalMapPCView_BindViewImplementation = Helpers.CreateInvoker<LocalMapPCView>("BindViewImplementation");
+        private static FastInvoke LocalMapPCView_AddLocalMapMarker = Helpers.CreateInvoker<LocalMapPCView>("AddLocalMapMarker",new Type[]{typeof(LocalMapMarkerVM)});
 
         internal static void CreateMarker(LocalMapPCView map, PointerEventData eventData)
         {
             ModMapMarker marker = NewMarker(map, eventData);
-            LocalMapModel.Markers.Add(marker);
-
-            //LocalMapVM_OnUpdateHandler(map.GetPropertyValue("ViewModel") as LocalMapVM);  // Force a refresh to display the new mark
-            LocalMapPCView_BindViewImplementation(map);  // Force a refresh to display the new mark
+            AddMarkerToGame(map, marker);
             UISoundController.Instance.Play(UISoundType.ButtonClick);
+        }
+
+        private static void RemoveMarkerFromGame(ILocalMapMarker marker)
+        {
+            LocalMapModel.Markers.RemoveWhere(delegate (ILocalMapMarker m)
+            {
+
+                return m.GetPosition() == marker.GetPosition() && m.GetDescription() == marker.GetDescription();
+            });
+
+            markerVMs.Where(delegate (LocalMapMarkerVM mVM)
+            {
+
+                return mVM.Position.Value == marker.GetPosition() && mVM.Description.Value == marker.GetDescription();
+            }).ForEach(delegate (LocalMapMarkerVM mVM) {
+                markerVMs.Remove(mVM);
+                mVM.Dispose();
+            });
+
+        }
+
+
+        private static void AddMarkerToGame(LocalMapPCView map, ModMapMarker marker)
+        {
+            LocalMapModel.Markers.Add(marker);
+            LocalMapVM mapVM = (LocalMapVM)map.GetPropertyValue("ViewModel");
+#if DEBUG
+            // Perform extra sanity checks in debug builds.
+            if (mapVM != null)
+            {
+                Log.Write($"mapVM is working");
+            }
+#endif
+            LocalMapMarkerVM markerVM = new LocalMapCommonMarkerVM(marker);
+            mapVM.MarkersVm.Add(markerVM);
+            markerVMs.Add(markerVM);
+            LocalMapPCView_AddLocalMapMarker(map, markerVM);
+            // LocalMapVM_OnUpdateHandler(map.GetPropertyValue("ViewModel") as LocalMapVM);  // Force a refresh to display the new mark
+
         }
 
         private static ModMapMarker NewMarker(LocalMapPCView map, PointerEventData eventData)
@@ -92,7 +131,7 @@ namespace CustomMapMarkers
             return worldPoint;
         }
 
-        internal static void AddMarkerstoLocalMap()
+        internal static void AddMarkerstoLocalMap(LocalMapPCView map)
         {
             if (StateManager.CurrentState.IsLocalMapInitialized) { return; }
 
@@ -103,6 +142,7 @@ namespace CustomMapMarkers
                 {
                     Log.Write($"AddMarkerstoLocalMap: ModMapMarker present before add! marker=[{((ModMapMarker)marker).Description}]");
                     // LocalMap.Markers.Remove(marker);
+                    RemoveMarkerFromGame(marker);
                 }
             }
 #endif
@@ -113,8 +153,9 @@ namespace CustomMapMarkers
             {
                 foreach (var marker in markers)
                 {
+                    //RemoveMarkerFromGame(marker); 
                     Log.Write($"AddMarkerstoLocalMap: marker=[{marker.Description}]");
-                    LocalMapModel.Markers.Add(marker);
+                    AddMarkerToGame(map, marker);
                 }
             }
 
@@ -127,10 +168,10 @@ namespace CustomMapMarkers
             List<ModMapMarker> markers;
             if (AreaMarkers.TryGetValue(areaName, out markers))
             {
-                foreach (var marker in markers)
+                foreach (ILocalMapMarker marker in markers)
                 {
                     Log.Write($"RemoveMarkersFromLocalMap: marker=[{((ModMapMarker)marker).Description}]");
-                    LocalMapModel.Markers.Remove(marker);
+                    RemoveMarkerFromGame(marker);
                 }
             }
 
