@@ -1,9 +1,9 @@
 {
     "Releases": [
         {
-            "Id": "CustomMapMarkers",
-            "Version": "1.2.0",
-            "DownloadUrl": "https://github.com/v1ld/pfk-custom-map-markers/releases/download/v1.2.0/CustomMapMarkers.-.1.2.0.zip"
+            "Id": "CustomMapMarkers-WotR",
+            "Version": "0.9.0",
+            "DownloadUrl": "https://github.com/FakeFriend24/pfk-custom-map-markers/releases/download/v0.9.0/CustomMapMarkers-WotR.zip"
         }
     ]
 }
