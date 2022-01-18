@@ -31,30 +31,12 @@ namespace CustomMapMarkers
 {
     public class Main
     {
-        /*
-        [Harmony12.HarmonyPatch(typeof(LibraryScriptableObject), "LoadDictionary", new Type[0])]
-        static class LibraryScriptableObject_LoadDictionary_Patch
-        {
-            static void Postfix(LibraryScriptableObject __instance)
-            {
-                var self = __instance;
-                if (Main.library != null) return;
-                Main.library = self;
 
-                //EnableGameLogging();
-
-#if DEBUG
-                // Perform extra sanity checks in debug builds.
-                SafeLoad(CheckPatchingSuccess, "Check that all patches are used, and were loaded");
-                Log.Write("Load finished.");
-#endif
-            }
-        }
-        */
-        /*
-        [Harmony12.HarmonyPatch(typeof(LocalMapPCView), "OnPointerClick")]
+        [HarmonyPatch(typeof(LocalMapPCView))]
+        [HarmonyPatch("OnPointerClick")]
         static class LocalMapPCView_OnPointerClick_Patch
         {
+
             private static bool Prefix(LocalMapPCView __instance, PointerEventData eventData)
             {
 #if DEBUG
@@ -68,14 +50,14 @@ namespace CustomMapMarkers
                     // Perform extra sanity checks in debug builds.
 
                     Log.Write($"PointerClick is left Button ");
-#endif                    
+#endif
                     if (KeyboardAccess.IsShiftHold())
                     {
 #if DEBUG
                         // Perform extra sanity checks in debug builds.
 
-                        Log.Write($"Shift has been Hold too.");
-#endif                    
+                        Log.Write($"Shift has been Hold too. " + (__instance == null).ToString());
+#endif
                         CustomMapMarkers.CreateMarker(__instance, eventData);
                     }
                 }
@@ -84,52 +66,29 @@ namespace CustomMapMarkers
                 return !(KeyboardAccess.IsCtrlHold() || KeyboardAccess.IsShiftHold());
             }
         }
-        */
-        [HarmonyPatch(typeof(LocalMapPCView))]
-        [HarmonyPatch("OnPointerClick")]
-        static class LocalMapPCView_OnPointerClick_Patch
-        {
-
-            private static bool Prefix(LocalMapPCView __instance, PointerEventData eventData)
-        {
-#if DEBUG
-            // Perform extra sanity checks in debug builds.
-
-            Log.Write($"Prefix executed. PointerClick was registered");
-#endif
-            if (eventData.button == PointerEventData.InputButton.Left)
-            {
-#if DEBUG
-                // Perform extra sanity checks in debug builds.
-
-                Log.Write($"PointerClick is left Button ");
-#endif
-                if (KeyboardAccess.IsShiftHold())
-                {
-#if DEBUG
-                    // Perform extra sanity checks in debug builds.
-
-                    Log.Write($"Shift has been Hold too. " + (__instance == null).ToString());
-#endif
-                    CustomMapMarkers.CreateMarker(__instance, eventData);
-                }
-            }
-
-            // Don't pass the click through to the map if control or shift are pressed
-            return !(KeyboardAccess.IsCtrlHold() || KeyboardAccess.IsShiftHold());
-        }
-    }
 
         [HarmonyPatch(typeof(LocalMapPCView))]
-        [HarmonyPatch("BindViewImplementation")]
-
-        static class LocalMapPCView_BindViewImplementation_Patch
+        [HarmonyPatch("Update")]
+        static class LocalMapPCView_Update_Patch
         {
             private static bool Prefix(LocalMapPCView __instance)
             {
+                if (Traverse.Create(__instance).Field<bool>("m_MouseDown").Value)
+                {
+                    return !(KeyboardAccess.IsCtrlHold() || KeyboardAccess.IsShiftHold());
+                }                // Don't pass the click through to the map if control or shift are pressed
+                return true;
+            }
+        }
+
+        [HarmonyPatch(typeof(LocalMapPCView))]
+        [HarmonyPatch("BindViewImplementation")]
+        static class LocalMapPCView_BindViewImplementation_Patch
+        {
+            private static void Postfix(LocalMapPCView __instance)
+            {
                 IsLocalMapActive = true;
                 CustomMapMarkers.OnShowLocalMap(__instance);
-                return true;
             }
         }
 
@@ -212,7 +171,7 @@ namespace CustomMapMarkers
                     try
                     {
                         IsControlPressed = Input.GetKey(KeyCode.LeftControl) || Input.GetKey(KeyCode.RightControl);
-                        IsShiftPressed   = Input.GetKey(KeyCode.LeftShift)   || Input.GetKey(KeyCode.RightShift);
+                        IsShiftPressed = Input.GetKey(KeyCode.LeftShift) || Input.GetKey(KeyCode.RightShift);
                     }
                     catch (Exception e)
                     {
@@ -224,7 +183,7 @@ namespace CustomMapMarkers
 
         private static bool IsLocalMapActive = false;
         private static bool IsControlPressed = false;
-        private static bool IsShiftPressed   = false;
+        private static bool IsShiftPressed = false;
 
         public static bool enabled;
 

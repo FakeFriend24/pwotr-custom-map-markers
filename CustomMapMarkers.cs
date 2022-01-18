@@ -82,7 +82,7 @@ namespace CustomMapMarkers
             LocalMapMarkerVM markerVM = new LocalMapCommonMarkerVM(marker);
             mapVM.MarkersVm.Add(markerVM);
             markerVMs.Add(markerVM);
-            LocalMapPCView_AddLocalMapMarker(map, markerVM);
+//            LocalMapPCView_AddLocalMapMarker(map, markerVM);
             // LocalMapVM_OnUpdateHandler(map.GetPropertyValue("ViewModel") as LocalMapVM);  // Force a refresh to display the new mark
 
         }
@@ -135,6 +135,7 @@ namespace CustomMapMarkers
         {
             if (StateManager.CurrentState.IsLocalMapInitialized) { return; }
 
+            /*
 #if DEBUG
             foreach (var marker in LocalMapModel.Markers)
             {
@@ -145,7 +146,8 @@ namespace CustomMapMarkers
                     RemoveMarkerFromGame(marker);
                 }
             }
-#endif
+#endif      
+            */
 
             string areaName = Game.Instance.CurrentlyLoadedArea.AreaDisplayName;
             List<ModMapMarker> markers;
@@ -264,11 +266,11 @@ namespace CustomMapMarkers
 
                 GUILayout.BeginHorizontal();
                 GUILayout.Label("Type: ", fixedWidth);
-                for (int i = 0; i < MarkTypeNames.Length; i++)
+                for (int i = 0; i < MarkTypeNames.Length; i++) 
                 {
                     if (GUILayout.Toggle(marker.Type == MarkTypes[i], MarkTypeNames[i], fixedWidth))
                     {
-                        marker.Type = MarkTypes[i];
+                        marker.Type = MarkTypes[i];                        
                     }
                 }
                 GUILayout.EndHorizontal();
