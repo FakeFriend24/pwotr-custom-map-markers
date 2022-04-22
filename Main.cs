@@ -26,7 +26,7 @@ using Kingmaker.UI;
 using Kingmaker.UI.MVVM._PCView.ServiceWindows.LocalMap;
 using Kingmaker.UI.MVVM._VM.ServiceWindows.LocalMap;
 using HarmonyLib;
-
+ 
 namespace CustomMapMarkers
 {
     public class Main
@@ -92,13 +92,14 @@ namespace CustomMapMarkers
             }
         }
 
-        [HarmonyPatch(typeof(LocalMapPCView))]
+        [HarmonyPatch(typeof(LocalMapBaseView))]
         [HarmonyPatch("DestroyViewImplementation")]
         static class LocalMapPCView_DestroyViewImplementation_Patch
         {
-            private static void Postfix()
+            private static void Postfix(LocalMapBaseView __instance)
             {
-                IsLocalMapActive = false;
+                if(__instance.GetType() == typeof(LocalMapPCView))
+                    IsLocalMapActive = false;
             }
         }
 

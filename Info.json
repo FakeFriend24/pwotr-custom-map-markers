@@ -2,7 +2,7 @@
   "Id": "CustomMapMarkers-WotR",
   "DisplayName": "Custom Map Markers - WotR Edition",
   "Author": "JesusLives24 & v1ld",
-  "Version": "1.0.1",
+  "Version": "1.0.2",
   "ManagerVersion": "0.23.0",
   "EntryMethod": "CustomMapMarkers.Main.Load",
   "HomePage": "https://github.com/FakeFriend24/pfk-custom-map-markers/tree/wotr-version",

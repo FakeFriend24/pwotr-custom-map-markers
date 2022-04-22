@@ -56,14 +56,17 @@ namespace CustomMapMarkers
                 return m.GetPosition() == marker.GetPosition() && m.GetDescription() == marker.GetDescription();
             });
 
-            markerVMs.Where(delegate (LocalMapMarkerVM mVM)
+            List<LocalMapMarkerVM> vms = new List<LocalMapMarkerVM>(markerVMs.Where(delegate (LocalMapMarkerVM mVM)
             {
 
                 return mVM.Position.Value == marker.GetPosition() && mVM.Description.Value == marker.GetDescription();
-            }).ForEach(delegate (LocalMapMarkerVM mVM) {
-                markerVMs.Remove(mVM);
-                mVM.Dispose();
-            });
+            }));
+            for (int i = vms.Count - 1; i >= 0; i--)
+            {
+
+                markerVMs.Remove(vms[i]);
+                vms[i].Dispose();
+            } 
 
         }
 
@@ -89,12 +92,26 @@ namespace CustomMapMarkers
 
         private static ModMapMarker NewMarker(LocalMapPCView map, PointerEventData eventData)
         {
+#if DEBUG
+            Log.Write("New Marker Reached.");
+#endif
             string areaName = Game.Instance.CurrentlyLoadedArea.AreaDisplayName;
-            List <ModMapMarker> markersForArea;
-            if (!AreaMarkers.TryGetValue(areaName, out markersForArea)) { AreaMarkers[areaName] = new List<ModMapMarker>(); }
+#if DEBUG
+            Log.Write("Area Display Name works fine.");
+#endif
+            if (!AreaMarkers.TryGetValue(areaName, out _)) { AreaMarkers[areaName] = new List<ModMapMarker>(); }
+#if DEBUG
+            Log.Write("AreaMarkersLibrary works fine too.");
+#endif
             Vector3 position = GetPositionFromEvent(map, eventData);
             ModMapMarker marker = new ModMapMarker(position);
+#if DEBUG
+            Log.Write("New ModMapMarker was created.");
+#endif
             AreaMarkers[areaName].Add(marker);
+#if DEBUG
+            Log.Write("New ModMapMarker was also added successfully.");
+#endif
             return marker;
         }
 
@@ -153,6 +170,10 @@ namespace CustomMapMarkers
             List<ModMapMarker> markers;
             if (AreaMarkers.TryGetValue(areaName, out markers))
             {
+#if DEBUG
+                Log.Write("Markers found. Current Count of ModMapMarkers: "+markers.Count);
+#endif
+
                 foreach (var marker in markers)
                 {
                     //RemoveMarkerFromGame(marker); 
@@ -170,11 +191,27 @@ namespace CustomMapMarkers
             List<ModMapMarker> markers;
             if (AreaMarkers.TryGetValue(areaName, out markers))
             {
-                foreach (ILocalMapMarker marker in markers)
+#if DEBUG
+                Log.Write("Markers found. Current Count of ModMapMarkers: " + markers.Count);
+#endif
+
+                foreach (var marker in markers)
                 {
-                    Log.Write($"RemoveMarkersFromLocalMap: marker=[{((ModMapMarker)marker).Description}]");
-                    RemoveMarkerFromGame(marker);
-                }
+                    Log.Write($"RemoveMarkersFromLocalMap: marker=[{marker.Description}]");
+#if DEBUG
+                    try
+                    {
+#endif
+
+                        RemoveMarkerFromGame(marker);
+#if DEBUG
+                    } catch(Exception e)
+                    {
+                        Log.Error(e);
+                    }
+#endif
+
+                    }
             }
 
             StateManager.CurrentState.IsLocalMapInitialized = false;
